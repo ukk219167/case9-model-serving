@@ -1,0 +1,21 @@
+# ── Web framework ────────────────────────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.30.1          # includes websockets + httptools for speed
+
+# ── ML ───────────────────────────────────────────────────────────────────────
+transformers==4.41.2
+# CPU-only torch — ~800 MB smaller than the CUDA build; fine for free-tier hosts.
+# Pin the index URL in Dockerfile so pip doesn't pull the CUDA wheel by mistake.
+torch==2.3.1
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+structlog==24.2.0
+
+# ── Validation ───────────────────────────────────────────────────────────────
+pydantic==2.7.4
+
+# ── Data / Training ──────────────────────────────────────────────────────────
+scikit-learn==1.5.0
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+python-multipart==0.0.9            # required by FastAPI for form data (good practice)

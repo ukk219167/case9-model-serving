@@ -1,0 +1,10 @@
+{
+  "accuracy": 0.9274,
+  "f1": 0.9271,
+  "precision": 0.9278,
+  "recall": 0.9265,
+  "threshold": 0.5,
+  "n_samples": 872,
+  "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
+  "_note": "Baseline computed on SST-2 validation set. The retrain gate blocks any PR where accuracy drops more than 0.02 below this value."
+}

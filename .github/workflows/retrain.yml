@@ -1,0 +1,176 @@
+# =============================================================================
+# retrain.yml — Retrain gate
+# =============================================================================
+# Triggers when a PR modifies any file under training/data/.
+#
+# This workflow is the "eval-first" gate described in the case brief:
+#   1. Retrain the model on the updated data.
+#   2. Evaluate against the held-out set → metrics.json.
+#   3. Compare metrics.json against baseline_metrics.json.
+#   4. Fail the PR if accuracy drops by more than REGRESSION_THRESHOLD.
+#   5. On success, update baseline_metrics.json and push back to the PR branch.
+#
+# The PR author does not need to manually update the baseline — the workflow
+# handles it, keeping the gate self-maintaining.
+#
+# Secrets required:
+#   None beyond the default GITHUB_TOKEN (used to push baseline updates).
+# =============================================================================
+
+name: Retrain Gate
+
+on:
+  pull_request:
+    paths:
+      - "training/data/**"     # Only triggers when training data changes
+
+env:
+  PYTHON_VERSION: "3.11"
+  # Accuracy must not drop by more than this fraction (2 percentage points).
+  REGRESSION_THRESHOLD: "0.02"
+
+jobs:
+  retrain-and-evaluate:
+    name: Retrain → Evaluate → Gate
+    runs-on: ubuntu-latest
+
+    # Allow the workflow to push the updated baseline back to the PR branch.
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0           # full history needed for git push later
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r requirements.txt
+
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-distilbert-sst2
+
+      # -----------------------------------------------------------------------
+      # Step 1 — Retrain
+      # -----------------------------------------------------------------------
+      - name: Retrain model
+        run: |
+          python training/train.py \
+            --data-dir  training/data/ \
+            --output-dir training/model_output/
+        env:
+          LOG_FORMAT: pretty
+
+      # -----------------------------------------------------------------------
+      # Step 2 — Evaluate
+      # -----------------------------------------------------------------------
+      - name: Evaluate on held-out set
+        run: |
+          python training/evaluate.py \
+            --model-dir  training/model_output/ \
+            --data-path  training/data/held_out.csv \
+            --output     metrics.json
+        env:
+          LOG_FORMAT: pretty
+
+      - name: Display new metrics
+        run: cat metrics.json
+
+      # -----------------------------------------------------------------------
+      # Step 3 — Compare against baseline (regression gate)
+      # -----------------------------------------------------------------------
+      - name: Check for regression
+        id: gate
+        run: |
+          python - <<'EOF'
+          import json, sys, os
+
+          threshold = float(os.environ["REGRESSION_THRESHOLD"])
+
+          with open("metrics.json") as f:
+              new = json.load(f)
+          with open("baseline_metrics.json") as f:
+              baseline = json.load(f)
+
+          new_acc      = new["accuracy"]
+          baseline_acc = baseline["accuracy"]
+          drop         = baseline_acc - new_acc
+
+          print(f"Baseline accuracy : {baseline_acc:.4f}")
+          print(f"New accuracy      : {new_acc:.4f}")
+          print(f"Drop              : {drop:.4f}  (threshold: {threshold})")
+
+          if drop > threshold:
+              print(f"\n❌ REGRESSION DETECTED — accuracy dropped {drop:.4f} > {threshold}")
+              sys.exit(1)
+
+          print(f"\n✅ Gate passed — accuracy within acceptable range.")
+          # Write new accuracy to env so the summary step can use it
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"new_accuracy={new_acc}\n")
+              fh.write(f"baseline_accuracy={baseline_acc}\n")
+          EOF
+        env:
+          REGRESSION_THRESHOLD: ${{ env.REGRESSION_THRESHOLD }}
+
+      # -----------------------------------------------------------------------
+      # Step 4 — Promote: update baseline_metrics.json and push to PR branch
+      # -----------------------------------------------------------------------
+      - name: Promote baseline
+        if: success()
+        run: |
+          cp metrics.json baseline_metrics.json
+          git config user.email "ci@github-actions"
+          git config user.name  "GitHub Actions [retrain-gate]"
+          git add baseline_metrics.json
+          git commit -m "ci: promote baseline → accuracy=${{ steps.gate.outputs.new_accuracy }}" \
+            || echo "No changes to commit (baseline unchanged)."
+          git push origin HEAD:${{ github.head_ref }}
+
+      # -----------------------------------------------------------------------
+      # Step 5 — Post a summary comment on the PR
+      # -----------------------------------------------------------------------
+      - name: Post PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed  = '${{ job.status }}' === 'success';
+            const newAcc  = '${{ steps.gate.outputs.new_accuracy }}';
+            const baseAcc = '${{ steps.gate.outputs.baseline_accuracy }}';
+            const icon    = passed ? '✅' : '❌';
+            const verdict = passed ? 'Gate **passed** — baseline updated.' : 'Gate **failed** — accuracy regressed beyond threshold.';
+
+            const body = [
+              `## ${icon} Retrain Gate`,
+              '',
+              `| Metric | Value |`,
+              `|--------|-------|`,
+              `| Baseline accuracy | ${baseAcc || 'N/A'} |`,
+              `| New accuracy      | ${newAcc  || 'N/A'} |`,
+              `| Regression threshold | ${{ env.REGRESSION_THRESHOLD }} |`,
+              '',
+              verdict,
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              body,
+            });
