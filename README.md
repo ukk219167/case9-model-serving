@@ -1,8 +1,7 @@
 # Case 9 · Model Serving Lite
 
-**Live demo:** https://huggingface.co/spaces/YOUR_HF_USERNAME/case9-sentiment-api  
-**Repo:** https://github.com/YOUR_GITHUB_USERNAME/case9-model-serving  
-**Demo video:** https://loom.com/share/YOUR_LOOM_ID  
+**Live demo:** https://huggingface.co/spaces/verryt/case9-sentiment-api  
+**Repo:** https://github.com/ukk219167/case9-model-serving  
 
 > A production-ready sentiment classification service — from HuggingFace notebook to a monitored, retrainable API.
 
@@ -17,7 +16,7 @@ Takes the `distilbert-base-uncased-finetuned-sst-2-english` model and wraps it i
 ## How to run locally
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/case9-model-serving.git
+git clone https://github.com/ukk219167/case9-model-serving.git
 cd case9-model-serving
 
 python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
@@ -148,4 +147,4 @@ Any PR touching `training/data/` triggers an automatic retrain + evaluation. The
 
 ## CI badges
 
-![CI](https://github.com/YOUR_GITHUB_USERNAME/case9-model-serving/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/ukk219167/case9-model-serving/actions/workflows/ci.yml/badge.svg)
