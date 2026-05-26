@@ -197,6 +197,10 @@ class DriftMonitor:
 
     Thread-safe: uses a threading.Lock around DDL/writes and relies on
     SQLite WAL mode for concurrent reads.
+
+    A single persistent connection is kept so that in-memory databases
+    (db_path=":memory:") work correctly in tests — each sqlite3.connect(":memory:")
+    call would otherwise produce a fresh, empty database.
     """
 
     db_path: str = DB_PATH
@@ -204,8 +208,14 @@ class DriftMonitor:
     alert_threshold: float = ALERT_THRESHOLD
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _vocab: frozenset[str] = field(default_factory=_load_vocab, init=False, repr=False)
+    # Single persistent connection — shared across all methods so that
+    # ":memory:" databases are visible to every caller on this instance.
+    _conn: sqlite3.Connection = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._init_db()
 
     # ------------------------------------------------------------------
@@ -213,23 +223,19 @@ class DriftMonitor:
     # ------------------------------------------------------------------
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        return conn
+        """Return the shared connection (context-manager safe for commits/rollbacks)."""
+        return self._conn
 
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS drift_events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT,
-                    text_length INTEGER,
-                    non_ascii_ratio REAL,
-                    flagged INTEGER
-                )
-            """)
-            conn.commit()
+    def _init_db(self) -> None:
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS drift_events (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                text_length  REAL    NOT NULL,
+                oov_rate     REAL    NOT NULL,
+                non_ascii_rate REAL  NOT NULL
+            )
+        """)
+        self._conn.commit()
 
     # ------------------------------------------------------------------
     # Write path (called on every /predict request)
