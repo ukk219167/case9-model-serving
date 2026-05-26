@@ -159,38 +159,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Push to Hugging Face Space
+      - name: Set up Python for deploy
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Upload to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE: ${{ secrets.HF_SPACE }}
         run: |
-          git config --global user.email "ci@github-actions"
-          git config --global user.name  "GitHub Actions"
+          pip install huggingface_hub==0.23.4 -q
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
 
-          # HF_SPACE is "username/space-name" — extract the username for auth.
-          # HF no longer accepts password auth; the token must be in the URL.
-          HF_USER=$(echo "${HF_SPACE}" | cut -d'/' -f1)
-          HF_REPO_URL="https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
+          token    = os.environ["HF_TOKEN"]
+          space_id = os.environ["HF_SPACE"]   # e.g. "yourname/case9-sentiment-api"
 
-          # Clone the Space repo with token auth
-          git clone "${HF_REPO_URL}" hf_space
-
-          # Sync the full repo root — HF Docker Spaces need Dockerfile at root.
-          # Exclude git internals, venv, caches, and the clone dir itself.
-          rsync -av \
-            --exclude='.git' \
-            --exclude='hf_space' \
-            --exclude='venv' \
-            --exclude='.venv' \
-            --exclude='__pycache__' \
-            --exclude='*.db' \
-            --exclude='*.db-shm' \
-            --exclude='*.db-wal' \
-            --exclude='.pytest_cache' \
-            ./ hf_space/
-
-          cd hf_space
-          git add -A
-          # Only commit if there are actual changes (idempotent deploys)
-          git diff --cached --quiet || git commit -m "deploy: ${{ github.sha }}"
-          git push "${HF_REPO_URL}" main
+          api = HfApi(token=token)
+          api.upload_folder(
+              folder_path=".",
+              repo_id=space_id,
+              repo_type="space",
+              commit_message="deploy: ${{ github.sha }}",
+              ignore_patterns=[
+                  ".git/*", "hf_space/*", "venv/*", ".venv/*",
+                  "**/__pycache__/*", "*.db", "*.db-shm", "*.db-wal",
+                  ".pytest_cache/*", "*.pyc",
+              ],
+          )
+          print(f"✅ Deployed to https://huggingface.co/spaces/{space_id}")
+          EOF
