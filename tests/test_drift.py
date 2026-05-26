@@ -45,7 +45,6 @@ def test_oov_rate_all_known(monkeypatch):
     from app import drift as drift_mod
 
     monkeypatch.setattr(drift_mod, "_load_vocab", lambda: frozenset(["hello", "world"]))
-    mon = DriftMonitor(db_path=":memory:")
     # Direct call to helper
     assert _oov_rate("hello world", frozenset(["hello", "world"])) == 0.0
 
