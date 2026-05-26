@@ -160,7 +160,7 @@ def _mean(values: Sequence[float]) -> float:
 def _std(values: Sequence[float], mean: float) -> float:
     if len(values) < 2:
         return 0.0
-    variance = sum((v - mean) ** 2 for v in values) / (len(values) - 1)
+    variance = sum((v - mean) ** 2 for v in values) / len(values)
     return math.sqrt(variance)
 
 
@@ -218,17 +218,18 @@ class DriftMonitor:
         conn.execute("PRAGMA synchronous=NORMAL")
         return conn
 
-    def _init_db(self) -> None:
-        with self._lock, self._connect() as conn:
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS drift_events (
-                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                    recorded_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                    text_length      REAL    NOT NULL,
-                    oov_rate         REAL    NOT NULL,
-                    non_ascii_rate   REAL    NOT NULL
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    text_length INTEGER,
+                    non_ascii_ratio REAL,
+                    flagged INTEGER
                 )
             """)
+            conn.commit()
 
     # ------------------------------------------------------------------
     # Write path (called on every /predict request)
