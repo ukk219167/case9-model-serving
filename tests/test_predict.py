@@ -49,9 +49,7 @@ async def client():
     test_monitor = DriftMonitor(db_path=":memory:")
     app.state.drift_monitor = test_monitor
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
 
@@ -191,9 +189,7 @@ async def test_predict_model_error_returns_503(client: AsyncClient):
 async def test_predict_drift_failure_does_not_break_response(client: AsyncClient):
     """If drift recording fails, the prediction response is still returned."""
     with patch("app.main.predict", return_value=MOCK_RESULT):
-        with patch.object(
-            app.state.drift_monitor, "record", side_effect=Exception("DB full")
-        ):
+        with patch.object(app.state.drift_monitor, "record", side_effect=Exception("DB full")):
             response = await client.post("/predict", json={"text": "Fine film."})
 
     # Should still return 200 — drift failure is non-fatal

@@ -41,7 +41,7 @@ import structlog
 # ---------------------------------------------------------------------------
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
-LOG_FORMAT: str = os.getenv("LOG_FORMAT", "json")   # "json" | "pretty"
+LOG_FORMAT: str = os.getenv("LOG_FORMAT", "json")  # "json" | "pretty"
 
 
 def configure_logging() -> None:
@@ -52,11 +52,11 @@ def configure_logging() -> None:
 
     # --- Shared processors applied to every log record ---
     shared_processors: list[Any] = [
-        structlog.contextvars.merge_contextvars,        # picks up bound context (request_id, etc.)
-        structlog.stdlib.add_logger_name,               # adds "logger" key
-        structlog.stdlib.add_log_level,                 # adds "level" key
-        structlog.processors.TimeStamper(fmt="iso"),    # adds "timestamp" in ISO-8601
-        structlog.processors.StackInfoRenderer(),       # renders stack_info if present
+        structlog.contextvars.merge_contextvars,  # picks up bound context (request_id, etc.)
+        structlog.stdlib.add_logger_name,  # adds "logger" key
+        structlog.stdlib.add_log_level,  # adds "level" key
+        structlog.processors.TimeStamper(fmt="iso"),  # adds "timestamp" in ISO-8601
+        structlog.processors.StackInfoRenderer(),  # renders stack_info if present
     ]
 
     if LOG_FORMAT == "pretty":
@@ -93,7 +93,7 @@ def configure_logging() -> None:
     handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
-    root_logger.handlers = [handler]          # replace any default handlers
+    root_logger.handlers = [handler]  # replace any default handlers
     root_logger.setLevel(LOG_LEVEL)
 
     # Quieten noisy third-party loggers that don't add value in demos

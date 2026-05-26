@@ -14,14 +14,14 @@ Design decisions:
 
 from __future__ import annotations
 
+import logging
 import os
 import time
-import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
-from transformers import pipeline, Pipeline
+from transformers import Pipeline, pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-MODEL_NAME: str = os.getenv(
-    "MODEL_NAME", "distilbert-base-uncased-finetuned-sst-2-english"
-)
+MODEL_NAME: str = os.getenv("MODEL_NAME", "distilbert-base-uncased-finetuned-sst-2-english")
 MODEL_VERSION: str = os.getenv("MODEL_VERSION", "distilbert-sst2-v1")
 
 # Map the raw label strings the pipeline returns to clean public-facing labels.
@@ -54,10 +52,10 @@ SentimentLabel = Literal["POSITIVE", "NEGATIVE"]
 class PredictionResult:
     """Immutable result returned by predict()."""
 
-    label: SentimentLabel       # "POSITIVE" | "NEGATIVE"
-    confidence: float           # 0.0 – 1.0
-    model_version: str          # e.g. "distilbert-sst2-v1"
-    inference_ms: float         # wall-clock inference time in milliseconds
+    label: SentimentLabel  # "POSITIVE" | "NEGATIVE"
+    confidence: float  # 0.0 – 1.0
+    model_version: str  # e.g. "distilbert-sst2-v1"
+    inference_ms: float  # wall-clock inference time in milliseconds
 
 
 # ---------------------------------------------------------------------------
@@ -132,12 +130,11 @@ def predict(text: str) -> PredictionResult:
     label = _LABEL_MAP.get(raw_label)
     if label is None:
         raise RuntimeError(
-            f"Unexpected label '{raw_label}' from pipeline. "
-            f"Known labels: {list(_LABEL_MAP)}"
+            f"Unexpected label '{raw_label}' from pipeline. " f"Known labels: {list(_LABEL_MAP)}"
         )
 
     return PredictionResult(
-        label=label,           # type: ignore[arg-type]
+        label=label,  # type: ignore[arg-type]
         confidence=round(float(raw["score"]), 6),
         model_version=MODEL_VERSION,
         inference_ms=round(inference_ms, 2),

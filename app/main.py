@@ -28,9 +28,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import AsyncGenerator
+from datetime import UTC, datetime
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -219,7 +219,7 @@ def predict_endpoint(body: PredictRequest, request: Request) -> PredictResponse:
 
     return PredictResponse(
         request_id=req_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         text_preview=text_preview,
         label=result.label,
         confidence=result.confidence,

@@ -40,9 +40,9 @@ import math
 import os
 import sqlite3
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -59,7 +59,7 @@ ALERT_THRESHOLD: float = float(os.getenv("DRIFT_ALERT_THRESHOLD", "2.0"))
 
 _BASELINE: dict[str, dict[str, float]] = {
     "text_length": {"mean": 72.5, "std": 48.3},
-    "oov_rate":    {"mean": 0.04, "std": 0.06},
+    "oov_rate": {"mean": 0.04, "std": 0.06},
     "non_ascii_rate": {"mean": 0.002, "std": 0.005},
 }
 
@@ -74,13 +74,54 @@ def _load_vocab() -> frozenset[str]:
         return frozenset(_VOCAB_PATH.read_text().splitlines())
     # Minimal stub — enough for the demo to run without the full vocab file.
     # OOV rate will be inflated but the structure is correct.
-    return frozenset([
-        "the", "a", "an", "and", "or", "but", "is", "was", "are", "were",
-        "i", "you", "he", "she", "it", "we", "they", "this", "that", "with",
-        "good", "great", "bad", "terrible", "amazing", "awful", "love", "hate",
-        "movie", "film", "story", "plot", "acting", "character", "director",
-        "not", "very", "really", "quite", "just", "so", "too", "more", "most",
-    ])
+    return frozenset(
+        [
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "is",
+            "was",
+            "are",
+            "were",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "this",
+            "that",
+            "with",
+            "good",
+            "great",
+            "bad",
+            "terrible",
+            "amazing",
+            "awful",
+            "love",
+            "hate",
+            "movie",
+            "film",
+            "story",
+            "plot",
+            "acting",
+            "character",
+            "director",
+            "not",
+            "very",
+            "really",
+            "quite",
+            "just",
+            "so",
+            "too",
+            "more",
+            "most",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -293,20 +334,20 @@ class DriftMonitor:
                 for name, b in _BASELINE.items()
             }
 
-        text_lengths  = [r[0] for r in rows]
-        oov_rates     = [r[1] for r in rows]
-        non_ascii     = [r[2] for r in rows]
+        text_lengths = [r[0] for r in rows]
+        oov_rates = [r[1] for r in rows]
+        non_ascii = [r[2] for r in rows]
 
         result: dict[str, DriftSignal] = {}
         for name, values in [
-            ("text_length",    text_lengths),
-            ("oov_rate",       oov_rates),
+            ("text_length", text_lengths),
+            ("oov_rate", oov_rates),
             ("non_ascii_rate", non_ascii),
         ]:
             b = _BASELINE[name]
             wm = _mean(values)
             ws = _std(values, wm)
-            z  = _z_score(wm, b["mean"], b["std"])
+            z = _z_score(wm, b["mean"], b["std"])
             result[name] = DriftSignal(
                 baseline_mean=b["mean"],
                 baseline_std=b["std"],

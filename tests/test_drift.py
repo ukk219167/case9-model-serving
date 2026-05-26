@@ -11,7 +11,6 @@ import pytest
 
 from app.drift import DriftMonitor, _mean, _non_ascii_rate, _oov_rate, _std, _z_score
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -33,7 +32,7 @@ def test_non_ascii_rate_pure_ascii():
 
 
 def test_non_ascii_rate_mixed():
-    rate = _non_ascii_rate("héllo")   # 'é' is non-ASCII
+    rate = _non_ascii_rate("héllo")  # 'é' is non-ASCII
     assert 0.0 < rate < 1.0
 
 
@@ -44,6 +43,7 @@ def test_non_ascii_rate_empty():
 def test_oov_rate_all_known(monkeypatch):
     """Words in the vocab produce 0.0 OOV rate."""
     from app import drift as drift_mod
+
     monkeypatch.setattr(drift_mod, "_load_vocab", lambda: frozenset(["hello", "world"]))
     mon = DriftMonitor(db_path=":memory:")
     # Direct call to helper

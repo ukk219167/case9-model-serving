@@ -15,12 +15,11 @@ Design decisions:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Shared base
@@ -30,11 +29,9 @@ from pydantic import BaseModel, Field, field_validator
 class BaseResponse(BaseModel):
     """Every response carries a timestamp and the request_id for log correlation."""
 
-    request_id: UUID = Field(
-        description="UUID echoed from the request (or generated server-side)."
-    )
+    request_id: UUID = Field(description="UUID echoed from the request (or generated server-side).")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="UTC time the response was generated.",
     )
 
@@ -76,9 +73,7 @@ class PredictResponse(BaseResponse):
     text_preview: str = Field(
         description="First 80 characters of the input (for log readability, not full PII)."
     )
-    label: Literal["POSITIVE", "NEGATIVE"] = Field(
-        description="Predicted sentiment class."
-    )
+    label: Literal["POSITIVE", "NEGATIVE"] = Field(description="Predicted sentiment class.")
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -140,15 +135,11 @@ class DriftReportResponse(BaseModel):
 
     window_size: int = Field(description="Number of recent requests included in the window.")
     requests_seen: int = Field(description="Total requests processed since startup.")
-    drift_detected: bool = Field(
-        description="True if ANY individual signal has raised an alert."
-    )
+    drift_detected: bool = Field(description="True if ANY individual signal has raised an alert.")
     signals: dict[str, DriftStats] = Field(
-        description=(
-            "Per-signal statistics. Keys: 'text_length', 'oov_rate', 'non_ascii_rate'."
-        )
+        description=("Per-signal statistics. Keys: 'text_length', 'oov_rate', 'non_ascii_rate'.")
     )
     last_updated: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="UTC time the report was generated.",
     )
