@@ -164,20 +164,33 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE: ${{ secrets.HF_SPACE }}
         run: |
-          # Sync the app directory to the HF Space git repo.
-          # HF Spaces rebuilds automatically on every push to the space's main branch.
           git config --global user.email "ci@github-actions"
           git config --global user.name  "GitHub Actions"
 
-          # Clone the Space repo (authenticated via HF_TOKEN)
-          git clone https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE} hf_space
+          # HF_SPACE is "username/space-name" — extract the username for auth.
+          # HF no longer accepts password auth; the token must be in the URL.
+          HF_USER=$(echo "${HF_SPACE}" | cut -d'/' -f1)
+          HF_REPO_URL="https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
 
-          # Copy updated app source into the space repo
-          cp -r app/       hf_space/app/
-          cp requirements.txt hf_space/requirements.txt
+          # Clone the Space repo with token auth
+          git clone "${HF_REPO_URL}" hf_space
+
+          # Sync the full repo root — HF Docker Spaces need Dockerfile at root.
+          # Exclude git internals, venv, caches, and the clone dir itself.
+          rsync -av \
+            --exclude='.git' \
+            --exclude='hf_space' \
+            --exclude='venv' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='*.db' \
+            --exclude='*.db-shm' \
+            --exclude='*.db-wal' \
+            --exclude='.pytest_cache' \
+            ./ hf_space/
 
           cd hf_space
           git add -A
           # Only commit if there are actual changes (idempotent deploys)
           git diff --cached --quiet || git commit -m "deploy: ${{ github.sha }}"
-          git push
+          git push "${HF_REPO_URL}" main
