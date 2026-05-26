@@ -1,3 +1,12 @@
+---
+title: Case9 Sentiment API
+emoji: 🎭
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # Case 9 · Model Serving Lite
 
 **Live demo:** https://huggingface.co/spaces/verryt/case9-sentiment-api  
